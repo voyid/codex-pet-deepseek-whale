@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>DeepSeek Whale · Codex 桌宠预览</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:28px; background:#16181d; color:#e7e9ee;
+         font:14px/1.5 "Segoe UI", system-ui, -apple-system, "Microsoft YaHei", sans-serif; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  p.sub { margin:0 0 22px; color:#9aa1ad; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px; }
+  .card { background:#1e2128; border:1px solid #2c313b; border-radius:14px; padding:14px 10px 10px;
+          display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .stage { width:180px; height:195px; display:flex; align-items:flex-end; justify-content:center; }
+  .pet { width:164px; aspect-ratio:192/208; background-repeat:no-repeat;
+         background-size:800% 1100%; image-rendering:pixelated; }
+  .name { font-size:12px; color:#9aa1ad; letter-spacing:.2px; }
+  .live { margin-top:26px; background:#1e2128; border:1px solid #2c313b; border-radius:14px; padding:18px; display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+  button { background:#2b3341; color:#e7e9ee; border:1px solid #3a4454; border-radius:9px; padding:7px 12px; cursor:pointer; font:inherit; }
+  button:hover { background:#354054; }
+  button.on { background:#3b6ef5; border-color:#3b6ef5; }
+  .hint { color:#7f8794; font-size:12px; margin-top:10px; }
+</style></head><body>
+<h1>DeepSeek Whale · Codex 桌宠</h1>
+<p class="sub">8×11 雪碧图，192×208 单元格，spriteVersionNumber 2。下面是各动作的实际播放效果。</p>
+<div class="grid" id="grid"></div>
+
+<div class="live">
+  <div class="stage" style="width:220px;height:238px"><div class="pet" id="live" style="width:200px"></div></div>
+  <div>
+    <div style="font-weight:600;margin-bottom:10px">点一下切换动作</div>
+    <div id="buttons"></div>
+    <div class="hint">状态播放 3 轮后自动回到 idle —— 与 Codex 运行时的行为一致。</div>
+  </div>
+</div>
+
+<script>
+const IMG = "./pets/deepseek/spritesheet.png";
+const STATES = {"idle":{"row":0,"frames":6,"dur":150},"running-right":{"row":1,"frames":8,"dur":120,"last":220},"running-left":{"row":2,"frames":8,"dur":120,"last":220},"waving":{"row":3,"frames":4,"dur":140,"last":280},"jumping":{"row":4,"frames":5,"dur":140,"last":280},"failed":{"row":5,"frames":8,"dur":140,"last":240},"waiting":{"row":6,"frames":6,"dur":150,"last":260},"running":{"row":7,"frames":6,"dur":120,"last":220},"review":{"row":8,"frames":6,"dur":150,"last":280}};
+const IDLE = [[0,0,280],[0,1,110],[0,2,110],[0,3,140],[0,4,140],[0,5,320]];
+const CN = {"idle":"待机 idle","running-right":"向右跑 running-right","running-left":"向左跑 running-left","waving":"挥手 waving","jumping":"跳跃 jumping","failed":"失败 failed","waiting":"等待 waiting","running":"干活 running","review":"检查 review"};
+const pos = (row, col) => ((col / 7) * 100) + "% " + ((row / 10) * 100) + "%";
+
+function table(name) {
+  if (name === "idle") return IDLE.map(([r, c, d]) => ({ r, c, d }));
+  const s = STATES[name];
+  const out = [];
+  for (let col = 0; col < s.frames; col++) out.push({ r: s.row, c: col, d: col === s.frames - 1 ? (s.last ?? s.dur) : s.dur });
+  return out;
+}
+
+function makePlayer(el, opts = {}) {
+  const state = { name: "idle", i: 0, loops: 0, timer: null, reduce: matchMedia("(prefers-reduced-motion: reduce)").matches };
+  function show() {
+    const t = table(state.name);
+    const f = t[Math.min(state.i, t.length - 1)];
+    el.style.backgroundPosition = pos(f.r, f.c);
+  }
+  function step() {
+    const t = table(state.name);
+    if (opts.repeat !== false && state.name !== "idle" && state.i >= t.length - 1) {
+      state.loops++;
+      if (state.loops >= 3) { state.name = "idle"; state.i = 0; state.loops = 0; state.timer = setTimeout(step, 400); show(); return; }
+      state.i = 0;
+    } else if (state.i >= t.length - 1) {
+      state.i = 0;
+    } else {
+      state.i++;
+    }
+    show();
+    state.timer = setTimeout(step, t[state.i].d);
+  }
+  function set(name) {
+    clearTimeout(state.timer); state.name = name; state.i = 0; state.loops = 0; show();
+    if (state.reduce) return;
+    state.timer = setTimeout(step, table(name)[0].d);
+  }
+  el.style.backgroundImage = "url(" + IMG + ")";
+  set(opts.initial || "idle");
+  return { set };
+}
+
+const grid = document.getElementById("grid");
+for (const name of Object.keys(STATES)) {
+  const card = document.createElement("div");
+  card.className = "card";
+  const stage = document.createElement("div"); stage.className = "stage";
+  const pet = document.createElement("div"); pet.className = "pet";
+  stage.appendChild(pet);
+  const label = document.createElement("div"); label.className = "name"; label.textContent = CN[name] || name;
+  card.append(stage, label); grid.appendChild(card);
+  makePlayer(pet, { initial: name, repeat: true });
+}
+
+const live = makePlayer(document.getElementById("live"), { initial: "idle", repeat: true });
+const btns = document.getElementById("buttons");
+for (const [name, label] of Object.entries(CN)) {
+  const b = document.createElement("button");
+  b.textContent = label; b.dataset.name = name;
+  if (name === "idle") b.classList.add("on");
+  b.onclick = () => {
+    [...btns.children].forEach(x => x.classList.toggle("on", x === b));
+    live.set(name);
+  };
+  btns.appendChild(b);
+}
+</script>
+</body></html>

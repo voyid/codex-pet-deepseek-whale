@@ -1,0 +1,7 @@
+{
+  "id": "deepseek",
+  "displayName": "DeepSeek Whale",
+  "description": "A chibi blue-whale maid that codes, thinks, and nibbles rice.",
+  "spriteVersionNumber": 2,
+  "spritesheetPath": "spritesheet.png"
+}
